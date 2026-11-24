@@ -47,7 +47,7 @@ PRODUCTS = [
 @app.route("/")
 def index():
     logger.info("GET / from %s", socket.gethostname())
-    return send_from_directory(BASE_DIR, "index.html")
+    return send_from_directory(os.path.join(BASE_DIR, "static"), "index.html")
 
 
 @app.route("/api/products")
