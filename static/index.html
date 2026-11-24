@@ -3,102 +3,212 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>商品列表 - HA Web Demo</title>
+  <title>图书馆管理系统 - HA Demo</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
-      background: #f4f6f8;
-      color: #333;
-    }
+    body { font-family: "PingFang SC", "Microsoft YaHei", sans-serif; background: #f4f6f8; color: #333; }
     .header {
-      background: #1f3a5f;
-      color: #fff;
-      padding: 20px 40px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      background: #1f3a5f; color: #fff; padding: 18px 40px;
+      display: flex; justify-content: space-between; align-items: center;
     }
     .header h1 { font-size: 22px; }
-    .server-info { font-size: 13px; opacity: .8; }
-    .container { max-width: 1000px; margin: 30px auto; padding: 0 20px; }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 20px;
+    .server-info { font-size: 13px; opacity: .85; text-align: right; line-height: 1.6; }
+    .badge {
+      display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 12px; margin-left: 6px;
     }
-    .card {
-      background: #fff;
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 1px 4px rgba(0,0,0,.08);
-      transition: transform .15s, box-shadow .15s;
+    .badge.direct { background: #2ecc71; color: #fff; }
+    .badge.buffer { background: #e67e22; color: #fff; }
+    .container { max-width: 1080px; margin: 24px auto; padding: 0 20px; }
+    .card { background: #fff; border-radius: 8px; padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .card h2 { font-size: 17px; margin-bottom: 14px; color: #1f3a5f; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #eef1f4; }
+    th { background: #f7f9fb; color: #666; font-weight: 600; }
+    .btn {
+      border: none; border-radius: 5px; padding: 6px 14px; font-size: 13px;
+      cursor: pointer; background: #1f3a5f; color: #fff; transition: opacity .15s;
     }
-    .card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
-    .card .name { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
-    .card .desc { font-size: 13px; color: #777; min-height: 36px; margin-bottom: 12px; }
-    .card .price { font-size: 18px; color: #c0392b; font-weight: 700; }
-    .card .stock { font-size: 12px; color: #999; margin-top: 6px; }
-    .stock.out { color: #c0392b; }
-    .footer {
-      text-align: center;
-      color: #aaa;
-      font-size: 12px;
-      padding: 30px 0;
+    .btn:hover { opacity: .85; }
+    .btn:disabled { background: #b8c2cc; cursor: not-allowed; }
+    .btn.ghost { background: #fff; color: #1f3a5f; border: 1px solid #1f3a5f; }
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .form-row input {
+      padding: 8px 12px; border: 1px solid #d5dbe1; border-radius: 5px; font-size: 13px; width: 200px;
     }
-    .loading { text-align: center; padding: 60px 0; color: #999; }
+    .msg { font-size: 13px; margin-left: 10px; }
+    .msg.ok { color: #27ae60; }
+    .msg.err { color: #c0392b; }
+    .stock-low { color: #c0392b; font-weight: 600; }
+    .tag { font-size: 12px; color: #999; }
+    .footer { text-align: center; color: #aaa; font-size: 12px; padding: 24px 0; }
+    .stats { display: flex; gap: 16px; margin-bottom: 20px; }
+    .stat { flex: 1; background: #fff; border-radius: 8px; padding: 14px 20px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .stat .num { font-size: 24px; font-weight: 700; color: #1f3a5f; }
+    .stat .lbl { font-size: 12px; color: #999; margin-top: 4px; }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1>🛒 商品中心</h1>
-    <div class="server-info" id="serverInfo">加载中…</div>
+    <h1>📚 图书馆管理系统</h1>
+    <div class="server-info">
+      <div>后端节点：<span id="serverInfo">加载中…</span></div>
+      <div>写模式：<span id="modeBadge" class="badge direct">直连 MySQL</span></div>
+    </div>
   </div>
 
   <div class="container">
-    <div class="loading" id="loading">正在加载商品…</div>
-    <div class="grid" id="grid"></div>
+    <div class="stats">
+      <div class="stat"><div class="num" id="statBooks">-</div><div class="lbl">藏书总数</div></div>
+      <div class="stat"><div class="num" id="statBorrowed">-</div><div class="lbl">累计借阅</div></div>
+      <div class="stat"><div class="num" id="statBuffered">-</div><div class="lbl">缓冲待落库</div></div>
+    </div>
+
+    <!-- 新增书本 -->
+    <div class="card">
+      <h2>➕ 新增书本</h2>
+      <div class="form-row">
+        <input id="newTitle" placeholder="书名（必填）">
+        <input id="newAuthor" placeholder="作者（必填）">
+        <input id="newTotal" type="number" min="1" value="3" style="width:110px" title="馆藏册数">
+        <button class="btn" onclick="addBook()">添加</button>
+        <span id="addMsg" class="msg"></span>
+      </div>
+    </div>
+
+    <!-- 所有书本 -->
+    <div class="card">
+      <h2>📖 所有书本 <button class="btn ghost" style="float:right;font-size:12px;padding:4px 10px" onclick="refreshAll()">刷新</button></h2>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>书名</th><th>作者</th><th>馆藏</th><th>可借</th><th>状态</th><th>操作</th></tr>
+        </thead>
+        <tbody id="bookRows">
+          <tr><td colspan="7" style="text-align:center;color:#999;padding:30px">加载中…</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 借阅名单 -->
+    <div class="card">
+      <h2>🧾 借阅名单</h2>
+      <table>
+        <thead>
+          <tr><th>记录号</th><th>书名</th><th>借阅人</th><th>借阅时间</th><th>状态</th></tr>
+        </thead>
+        <tbody id="borrowRows">
+          <tr><td colspan="5" style="text-align:center;color:#999;padding:30px">加载中…</td></tr>
+        </tbody>
+      </table>
+      <p class="tag" style="margin-top:10px">注：高峰期受理的借阅先暂存 Redis，最长 5 秒后批量写入 MySQL，名单可能稍有延迟。</p>
+    </div>
   </div>
 
-  <div class="footer">高可用多节点 Web 服务系统 · Demo</div>
+  <div class="footer">高可用多节点 Web 服务系统 · 图书馆 Demo · 数据：MySQL 主从 + Redis 写缓冲</div>
 
   <script>
-    // 渲染商品卡片
-    function render(products) {
-      const grid = document.getElementById('grid');
-      const loading = document.getElementById('loading');
-      loading.style.display = 'none';
-      grid.innerHTML = products.map(p => `
-        <div class="card">
-          <div class="name">${p.name}</div>
-          <div class="desc">${p.description}</div>
-          <div class="price">¥${p.price.toFixed(2)}</div>
-          <div class="stock ${p.stock === 0 ? 'out' : ''}">
-            ${p.stock > 0 ? '库存：' + p.stock + ' 件' : '已售罄'}
-          </div>
-        </div>
-      `).join('');
+    // ---------- 数据加载 ----------
+    async function loadBooks() {
+      try {
+        const res = await fetch('/api/books');
+        const data = await res.json();
+        document.getElementById('serverInfo').textContent = data.hostname + ' · ' + data.time;
+        document.getElementById('statBooks').textContent = data.count;
+        document.getElementById('statBuffered').textContent = data.buffered_total;
+
+        const badge = document.getElementById('modeBadge');
+        if (data.burst) {
+          badge.className = 'badge buffer';
+          badge.textContent = 'Redis 缓冲中';
+        } else {
+          badge.className = 'badge direct';
+          badge.textContent = '直连 MySQL';
+        }
+
+        const rows = data.books.map(b => {
+          const disabled = b.available <= 0 ? 'disabled' : '';
+          const stockCls = b.available <= 2 ? 'stock-low' : '';
+          const status = b.available <= 0 ? '已借完' : (b.available <= 2 ? '紧张' : '在架');
+          const bufNote = b.buffered > 0 ? ` <span class="tag">(+${b.buffered} 笔缓冲中)</span>` : '';
+          return `<tr>
+            <td>${b.id}</td><td>${b.title}</td><td>${b.author}</td>
+            <td>${b.total}</td>
+            <td class="${stockCls}">${b.available}${bufNote}</td>
+            <td>${status}</td>
+            <td><button class="btn" ${disabled} onclick="borrow(${b.id}, '${b.title.replace(/'/g, "\\'")}')">借阅</button></td>
+          </tr>`;
+        }).join('');
+        document.getElementById('bookRows').innerHTML = rows ||
+          '<tr><td colspan="7" style="text-align:center;color:#999;padding:24px">书库为空，请先新增书本</td></tr>';
+      } catch (e) {
+        document.getElementById('serverInfo').textContent = '后端连接失败';
+      }
     }
 
-    // 拉取商品列表；失败时展示兜底数据，避免白屏
-    fetch('/api/products')
-      .then(res => {
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        return res.json();
-      })
-      .then(data => {
-        document.getElementById('serverInfo').textContent =
-          '后端节点：' + data.hostname + ' · 渲染时间 ' + data.time;
-        render(data.products);
-      })
-      .catch(err => {
-        document.getElementById('serverInfo').textContent = '后端连接失败，展示兜底数据';
-        document.getElementById('loading').style.display = 'none';
-        render([
-          { name: '示例商品 A', description: '后端未连接时的占位数据', price: 99.0, stock: 10 },
-          { name: '示例商品 B', description: '请检查 Flask 服务是否启动', price: 199.0, stock: 0 },
-        ]);
-      });
+    async function loadBorrows() {
+      try {
+        const res = await fetch('/api/borrows');
+        const data = await res.json();
+        document.getElementById('statBorrowed').textContent = data.count;
+        const rows = data.records.map(r => `<tr>
+          <td>#${r.id}</td><td>${r.title}</td><td>${r.borrower}</td>
+          <td>${r.borrow_time}</td><td>${r.status === 'borrowed' ? '在借' : '已还'}</td>
+        </tr>`).join('');
+        document.getElementById('borrowRows').innerHTML = rows ||
+          '<tr><td colspan="5" style="text-align:center;color:#999;padding:24px">暂无借阅记录</td></tr>';
+      } catch (e) { /* 后端未就绪时静默 */ }
+    }
+
+    function refreshAll() { loadBooks(); loadBorrows(); }
+
+    // ---------- 操作 ----------
+    async function addBook() {
+      const title = document.getElementById('newTitle').value.trim();
+      const author = document.getElementById('newAuthor').value.trim();
+      const total = parseInt(document.getElementById('newTotal').value || '1', 10);
+      const msg = document.getElementById('addMsg');
+      if (!title || !author) { msg.className = 'msg err'; msg.textContent = '书名和作者必填'; return; }
+      try {
+        const res = await fetch('/api/books', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({title, author, total})
+        });
+        const data = await res.json();
+        if (data.ok) {
+          msg.className = 'msg ok'; msg.textContent = '已添加《' + title + '》';
+          document.getElementById('newTitle').value = '';
+          document.getElementById('newAuthor').value = '';
+          refreshAll();
+        } else {
+          msg.className = 'msg err'; msg.textContent = data.msg || '添加失败';
+        }
+      } catch (e) { msg.className = 'msg err'; msg.textContent = '后端连接失败'; }
+    }
+
+    async function borrow(bookId, title) {
+      const borrower = prompt('借阅《' + title + '》，请输入借阅人姓名：');
+      if (borrower === null) return;
+      try {
+        const res = await fetch('/api/borrow', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({book_id: bookId, borrower: borrower || '匿名读者'})
+        });
+        const data = await res.json();
+        if (data.ok) {
+          alert(data.mode === 'buffered'
+            ? '已受理（高峰期缓冲中，稍后自动入库）'
+            : '借阅成功');
+          refreshAll();
+        } else {
+          alert(data.msg || '借阅失败');
+        }
+      } catch (e) { alert('后端连接失败'); }
+    }
+
+    // 每 5 秒自动刷新，观察缓冲模式的进入/退出
+    refreshAll();
+    setInterval(refreshAll, 5000);
   </script>
 </body>
 </html>
